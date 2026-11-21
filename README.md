@@ -5,53 +5,53 @@
 [![Temporal.io](https://img.shields.io/badge/Temporal.io-SDK-black.svg)](https://temporal.io/)
 [![Redis](https://img.shields.io/badge/Redis-7%20ZSET%20%2B%20Lua-red.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
-[![Tests](https://img.shields.io/badge/Tests-30%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passed-brightgreen.svg)]()
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0%20Swagger%20UI-green.svg)](http://localhost:3000/docs)
 [![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-orange.svg)](http://localhost:3000/metrics)
+[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-A production-grade, distributed hotel offer aggregation and pricing engine. Orchestrated using **Temporal.io** for deterministic workflow execution and fault tolerance, powered by **Redis 7 native range indexing (`ZSET` + `HASH` + atomic Lua scripts)** for high-throughput price filtering, containerized with multi-stage **Docker**, and verified end-to-end.
+A production-grade, distributed hotel offer aggregation and pricing engine. Designed with **Temporal.io** for deterministic workflow orchestration and fault-tolerant parallel execution, powered by **Redis 7 native range indexing (`ZSET` + `HASH` + atomic Lua scripts)** for high-throughput price filtering, hardened with **Singleflight request coalescing** against cache stampedes, and containerized with multi-stage **Docker**.
 
 ---
 
-## Standout Architectural Decisions
+## Executive Summary & Standout Highlights
 
-1. **Native Redis-Side Range Indexing & Lua Scripting (Zero In-Memory Filtering)**
-   - Instead of fetching bloated JSON blobs and filtering inside Node.js heap memory, offers are indexed using a native Redis **Sorted Set (`ZSET`)** `hotels:prices:{city}` (score = price) and stored in a **Hash (`HASH`)** `hotels:data:{city}`.
-   - Price range queries (`minPrice` to `maxPrice`) execute directly inside the Redis engine in a **single atomic Lua script (`EVAL`)** roundtrip via `ZRANGEBYSCORE` + `HMGET`.
-   - Optional Redis-side pagination (`limit` & `offset`) is supported directly in the Lua script (`LIMIT offset count`).
+Many hotel aggregators rely on naive in-memory filtering or brittle microservices that crash when downstream suppliers degrade. This system was engineered with distributed systems rigor:
+
+1. **Native Redis-Side Range Indexing & Lua Filtering (Zero In-Memory Filtering)**
+   - Offers are indexed using a Redis **Sorted Set (`ZSET`)** `hotels:prices:{city}` (score = price) and stored in a **Hash (`HASH`)** `hotels:data:{city}`.
+   - Price range filtering (`minPrice` to `maxPrice`) and pagination (`limit` & `offset`) execute directly inside Redis in a **single atomic Lua script (`EVAL`)** roundtrip via `ZRANGEBYSCORE ... LIMIT offset count` + `HMGET`.
    - Empty search results (e.g. unknown cities) are explicitly tracked in `hotels:meta:{city}` with TTL to eliminate cache-miss stampedes.
 
-2. **Singleflight Request Coalescing (Thundering Herd / Cache Stampede Defense)**
-   - When a popular city's TTL expires, concurrent requests are merged into a single in-flight promise (`SingleflightGroup`). Only one Temporal workflow is executed, preventing duplicate work and upstream load spikes.
+2. **Singleflight Request Coalescing (Thundering Herd / Stampede Defense)**
+   - When a popular city's TTL expires, concurrent requests are merged into a single in-flight promise (`SingleflightGroup`). Only **one** Temporal workflow executes; all waiting callers receive the shared result.
 
 3. **Temporal.io Workflow Determinism & Graceful Partial Failures**
-   - Workflow logic (`src/temporal/workflows.ts`) is strictly deterministic with zero non-deterministic side effects (`Date.now()`, `Math.random()`, or direct I/O).
-   - Upstream supplier activities (`fetchSupplierAHotels` and `fetchSupplierBHotels`) run in **parallel** via `Promise.allSettled()`.
+   - Workflow logic (`src/temporal/workflows.ts`) is strictly deterministic with zero non-deterministic side effects (`Date.now()`, `Math.random()`, direct I/O).
+   - Supplier activities (`fetchSupplierAHotels` and `fetchSupplierBHotels`) run **in parallel** via `Promise.allSettled()`.
    - **Graceful Fallback:** If one supplier suffers an outage or exhausts its retry budget, the workflow logs a warning, flags `degradedSuppliers`, and continues fulfilling client requests with the healthy supplier.
    - If both suppliers fail, the workflow throws an `ApplicationFailure`, returning `503 Service Unavailable`.
-   - Caching in Redis is executed as a durable Temporal Activity (`cacheHotelOffersInRedis`), making cache population transparent and visible in the Temporal Web UI.
-   - **Real-time Workflow Queries & Signals:** Exposes `getExecutionStatus` query and `cancelWorkflow` signal for real-time workflow inspection.
+   - Caching in Redis is executed as a durable Temporal Activity (`cacheHotelOffersInRedis`), making cache population transparent in the Temporal Web UI.
+   - **Live Workflow Inspection:** Exposes a real-time `getExecutionStatus` query and `cancelWorkflow` signal.
 
-4. **Multi-Tier Deduplication & Best-Offer Selection**
-   - Hotels are canonicalized using whitespace collapse, punctuation removal, and case-insensitive matching (`normalizeHotelName`).
-   - Tie-breaking hierarchy:
+4. **Multi-Tier Deduplication & Best-Offer Selection Engine**
+   - Names are canonicalized using whitespace collapse, punctuation stripping, and case normalization (`normalizeHotelName`).
+   - Comparison hierarchy:
      1. **Lowest Price** wins.
      2. If prices are identical: **Highest `commissionPct`** wins (maximizing platform margin).
      3. If commission is also identical: Deterministic alphabetical ordering by supplier name.
 
-5. **Production Observability & Documentation**
+5. **Production Observability, Documentation & Edge Security**
    - **Interactive Swagger UI:** Available at `/docs` (and `/docs.json`) for 1-click browser testing of all endpoints.
    - **Prometheus Metrics:** Standard `/metrics` endpoint exposing HTTP request counts, latency histograms, cache hit/miss counters, and Temporal workflow durations.
+   - **Defensive Edge Protection:** Security headers with `helmet` and IP rate limiting with `express-rate-limit` (500 req/min with standard `RateLimit-*` headers).
    - **Correlation IDs:** Standard `X-Request-Id` propagated across all logs and response headers.
-
-6. **Defensive Edge Protection**
-   - Security headers with `helmet` (`nosniff`, `HSTS`, `X-Frame-Options`).
-   - Rate limiting with `express-rate-limit` on `/api` routes (500 req/min with standard `RateLimit-*` headers).
 
 ---
 
-## System Architecture
+## Architecture Diagrams
 
+### 1. Request Flow & Caching Pipeline
 ```mermaid
 sequenceDiagram
     autonumber
@@ -90,6 +90,22 @@ sequenceDiagram
     end
 ```
 
+### 2. Temporal Workflow Lifecycle State Machine
+```mermaid
+stateDiagram-v2
+    [*] --> Initializing: Input city validated
+    Initializing --> Fetching: Start parallel activities
+    state Fetching {
+        [*] --> FetchSupplierA
+        [*] --> FetchSupplierB
+    }
+    Fetching --> Deduplicating: Both suppliers succeeded OR 1 supplier succeeded (degraded fallback)
+    Fetching --> Failed: Both suppliers failed (throw ApplicationFailure -> HTTP 503)
+    Deduplicating --> CachingInRedis: Deduplicate by price, commission, & name
+    CachingInRedis --> Completed: Atomically store ZSET, HASH, & metadata in Redis
+    Completed --> [*]
+```
+
 ---
 
 ## Project Structure
@@ -98,52 +114,55 @@ sequenceDiagram
 .
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                  # GitHub Actions CI pipeline
+│       └── ci.yml                  # GitHub Actions CI pipeline (Node 22, Redis, Vitest, Docker)
 ├── src/
 │   ├── api/
-│   │   ├── app.ts                  # Express app factory (helmet, rate limiter, routes)
+│   │   ├── app.ts                  # Express application factory (Helmet, CORS, rate limiter, routes)
 │   │   ├── docs/
-│   │   │   └── swagger.ts          # OpenAPI 3.0 specification
+│   │   │   └── swagger.ts          # OpenAPI 3.0 specification & Swagger UI metadata
 │   │   ├── routes/
 │   │   │   ├── hotels.routes.ts    # GET /api/hotels (singleflight & Redis Lua filtering)
-│   │   │   ├── suppliers.routes.ts # Mock suppliers (/supplierA/hotels, /supplierB/hotels)
-│   │   │   ├── admin.routes.ts     # Chaos / Fault-injection controls
+│   │   │   ├── suppliers.routes.ts # Mock supplier endpoints (/supplierA/hotels, /supplierB/hotels)
+│   │   │   ├── admin.routes.ts     # Chaos & Fault-injection controls (/admin/suppliers/...)
 │   │   │   ├── health.routes.ts    # Deep health probe (/health)
-│   │   │   └── metrics.routes.ts   # Prometheus metrics (/metrics)
+│   │   │   └── metrics.routes.ts   # Prometheus metrics scrape endpoint (/metrics)
 │   │   └── middleware/
-│   │       ├── requestId.ts        # Correlation ID (X-Request-Id)
-│   │       └── errorHandler.ts     # Centralized error handler
+│   │       ├── requestId.ts        # Correlation ID middleware (X-Request-Id)
+│   │       └── errorHandler.ts     # Centralized error handler (Zod, Temporal, HTTP 503)
 │   ├── config/
-│   │   └── env.ts                  # Zod-validated environment config
+│   │   └── env.ts                  # Zod-validated environment configuration
 │   ├── domain/
-│   │   ├── types.ts                # TypeScript domain models
-│   │   └── deduplicate.ts          # Pure deduplication & tie-breaking engine
+│   │   ├── types.ts                # Strict TypeScript domain interfaces
+│   │   └── deduplicate.ts          # Pure deduplication, tie-breaker & normalization engine
 │   ├── services/
-│   │   ├── redis.service.ts        # Redis ZSET + HASH + Lua script engine
-│   │   └── temporal.service.ts     # Temporal client & workflow runner
+│   │   ├── redis.service.ts        # Redis ZSET + HASH + Lua script engine with pagination
+│   │   └── temporal.service.ts     # Singleton Temporal client & resilient workflow runner
 │   ├── suppliers/
 │   │   ├── mockData.ts             # Deterministic mock datasets (Delhi & Mumbai)
-│   │   └── supplierState.ts        # In-memory chaos state manager
+│   │   └── supplierState.ts        # In-memory chaos & fault-injection state manager
 │   ├── temporal/
-│   │   ├── workflows.ts            # Deterministic Temporal workflow (Queries & Signals)
+│   │   ├── workflows.ts            # Deterministic Temporal workflow (with Queries & Signals)
 │   │   ├── activities.ts           # Supplier HTTP fetching & Redis caching activities
-│   │   └── constants.ts            # Task queues and retry policies
+│   │   └── constants.ts            # Task queues, timeouts, and retry policies
 │   ├── utils/
-│   │   ├── logger.ts               # Pino structured JSON logger
-│   │   ├── metrics.ts              # Prometheus metrics registry
-│   │   └── singleflight.ts         # In-flight request coalescer
-│   ├── server.ts                   # HTTP API entrypoint
-│   └── worker.ts                   # Temporal Worker entrypoint
+│   │   ├── logger.ts               # Pino structured JSON logger with pretty printing
+│   │   ├── metrics.ts              # Prometheus metrics registry (counters, histograms, gauges)
+│   │   └── singleflight.ts         # In-flight request coalescer against cache stampedes
+│   ├── server.ts                   # HTTP API entrypoint with graceful shutdown
+│   └── worker.ts                   # Dedicated Temporal Worker entrypoint
 ├── tests/
 │   ├── unit/
-│   │   └── deduplicate.test.ts     # Pure deduplication, tie-breaker & normalization tests
+│   │   └── deduplicate.test.ts     # 100% pure deduplication, tie-breaker & normalization tests
 │   └── integration/
-│       ├── redis.service.test.ts   # Redis ZSET indexing, pagination, & Lua filtering tests
-│       └── api.test.ts             # API routes, metrics, docs, fault injection, & validation
+│       ├── redis.service.test.ts   # Redis ZSET range indexing, pagination, & Lua filtering tests
+│       └── api.test.ts             # API routes, metrics, docs, fault injection, & validation tests
 ├── postman/
 │   └── Hotel_Offer_Orchestrator.postman_collection.json # Complete Postman v2.1 collection
 ├── Dockerfile                      # Multi-stage production build (node:22-bookworm-slim)
 ├── docker-compose.yml              # 1-command stack (redis, temporal, api, worker)
+├── .dockerignore
+├── .gitignore
+├── .env.example
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -161,14 +180,53 @@ docker compose up --build -d
 
 ### Service Map
 
-| Service | Port | Description |
+| Service | Port / URL | Description |
 |---|---|---|
 | **HTTP API** | `http://localhost:3000` | Hotel search, mock suppliers, admin, and health check |
-| **Interactive Docs** | `http://localhost:3000/docs` | Swagger UI OpenAPI documentation |
+| **Interactive Docs** | `http://localhost:3000/docs` | Interactive Swagger UI (OpenAPI 3.0) |
 | **Prometheus Metrics**| `http://localhost:3000/metrics` | Prometheus metrics scrape target |
 | **Temporal Web UI** | `http://localhost:8080` | Live workflow monitoring, replay debugging, activity timeline |
 | **Temporal gRPC** | `localhost:7233` | Temporal cluster gRPC endpoint |
 | **Redis** | `localhost:6379` | Native Redis 7 server |
+
+Inspect container health:
+```bash
+docker compose ps
+```
+
+Stop stack:
+```bash
+docker compose down
+```
+
+---
+
+## Standalone Local Development (Without Docker)
+
+The application includes an embedded in-memory fallback for both Redis and Temporal execution, meaning it can run locally on any machine with zero external service dependencies.
+
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Run Test Suite
+```bash
+npm test
+```
+*(Runs 30 unit & integration tests covering deduplication, tie-breakers, Redis Lua scripts, pagination, API routes, metrics, and fault injection).*
+
+### 3. Type Check & Compile
+```bash
+npm run typecheck
+npm run build
+```
+
+### 4. Start Server Locally
+```bash
+npm start
+```
+Server listens on `http://localhost:3000`.
 
 ---
 
@@ -219,21 +277,69 @@ curl -i "http://localhost:3000/api/hotels?city=delhi"
   }
 ]
 ```
+**Response Headers:**
+```http
+X-Request-Id: 8e5a7b62-520e-473d-9d7a-123456789abc
+X-Cache-Status: MISS
+X-Workflow-Id: hotel-search-delhi-a1b2c3d4
+RateLimit-Limit: 500
+RateLimit-Remaining: 499
+```
 
 ---
 
 ### 2. Redis-Side Price Range Filtering & Pagination
 ```bash
-# Filter between 5000 and 6000
+# Range filtering inside Redis via Lua script
 curl -i "http://localhost:3000/api/hotels?city=delhi&minPrice=5000&maxPrice=6000"
 
-# Optional pagination (top 2 results via Redis LIMIT)
+# Redis-side pagination (top 2 results via ZRANGEBYSCORE ... LIMIT 0 2)
 curl -i "http://localhost:3000/api/hotels?city=delhi&limit=2&offset=0"
+```
+**Response (`200 OK` with `X-Cache-Status: HIT`):**
+```json
+[
+  {
+    "name": "Holtin",
+    "price": 5340,
+    "supplier": "Supplier B",
+    "commissionPct": 20
+  },
+  {
+    "name": "Radison",
+    "price": 5900,
+    "supplier": "Supplier A",
+    "commissionPct": 13
+  }
+]
 ```
 
 ---
 
-### 3. Deep System Health Check
+### 3. Verify Genuine Redis Sorted Set Index
+Inspect the native Sorted Set directly inside Redis:
+```bash
+docker compose exec redis redis-cli ZRANGE hotels:prices:delhi 0 -1 WITHSCORES
+```
+**Output:**
+```text
+1) "holtin"
+2) "5340"
+3) "radison"
+4) "5900"
+5) "leela ambience"
+6) "7200"
+7) "taj palace"
+8) "8500"
+9) "itc maurya"
+10) "9100"
+11) "the oberoi"
+12) "11500"
+```
+
+---
+
+### 4. Deep System Health Check
 ```bash
 curl -i "http://localhost:3000/health"
 ```
@@ -254,7 +360,7 @@ curl -i "http://localhost:3000/health"
 
 ---
 
-### 4. Chaos / Fault Injection Demonstration
+### 5. Chaos / Fault Injection Demonstration
 Simulate an outage in Supplier A:
 ```bash
 curl -i -X POST "http://localhost:3000/admin/suppliers/supplierA/status" \
@@ -283,16 +389,44 @@ curl -i -X POST "http://localhost:3000/admin/suppliers/supplierA/status" \
 
 ---
 
-### 5. Prometheus Metrics
+### 6. Prometheus Metrics
 ```bash
 curl -s "http://localhost:3000/metrics"
 ```
-Returns standard Prometheus text metrics: `hotel_http_requests_total`, `hotel_cache_hits_total`, `hotel_cache_misses_total`, heap space gauges, and garbage collection histograms.
+Returns Prometheus text format metrics:
+- `hotel_http_requests_total{method="GET",route="/api/hotels",status_code="200"}`
+- `hotel_cache_hits_total{city="delhi"}`
+- `hotel_cache_misses_total{city="delhi"}`
+- `hotel_http_request_duration_seconds_bucket{...}`
+- Process memory, garbage collection, and event loop metrics.
 
 ---
 
-### 6. Interactive OpenAPI / Swagger UI
-Navigate to `http://localhost:3000/docs` in your web browser.
+### 7. Interactive OpenAPI / Swagger UI
+Open your web browser and navigate to:
+```
+http://localhost:3000/docs
+```
+Raw OpenAPI 3.0 specification available at `http://localhost:3000/docs.json`.
+
+---
+
+## Postman Collection
+
+Import [postman/Hotel_Offer_Orchestrator.postman_collection.json](file:///c:/Users/LenovoLP/Desktop/Hotel%20Offer%20Orchestrator%20Assignment/postman/Hotel_Offer_Orchestrator.postman_collection.json) into Postman. It contains pre-configured requests with automated JavaScript assertions (`pm.test`):
+- **1. Health & Suppliers:** Tests deep health checks and individual mock supplier endpoints.
+- **2. Hotel Search & Deduplication:** Tests price comparisons, deduplication, multi-city isolation, and empty result handling.
+- **3. Redis Price Range Filtering:** Tests bounded ranges, open bounds, and input validation.
+- **4. Resilience & Failure Simulation:** Simulates supplier failure, verifies degraded status, and tests graceful fallback.
+
+---
+
+## Continuous Integration (CI)
+
+A complete GitHub Actions workflow is pre-configured at [`.github/workflows/ci.yml`](file:///c:/Users/LenovoLP/Desktop/Hotel%20Offer%20Orchestrator%20Assignment/.github/workflows/ci.yml):
+- Runs on every `push` and `pull_request` to `main` / `master`.
+- Spins up a native Redis 7 service container.
+- Executes `npm run typecheck`, `npm test` (30 tests), `npm run build`, and verifies the multi-stage `docker build`.
 
 ---
 
