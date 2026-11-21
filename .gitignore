@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+npm-debug.log*
+.DS_Store
+
+# Private assessment briefs & internal prompt files
+.private/
+private/
+*.docx
+PROMPT.md
