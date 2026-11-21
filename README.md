@@ -131,6 +131,8 @@ stateDiagram-v2
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                  # GitHub Actions CI pipeline (Node 22, Redis, Vitest, Docker)
+├── public/
+│   └── index.html                  # Interactive Recruiter Web Dashboard (Search, Lua filters, Chaos)
 ├── src/
 │   ├── api/
 │   │   ├── app.ts                  # Express application factory (Helmet, CORS, rate limiter, routes)
@@ -198,8 +200,9 @@ docker compose up --build -d
 
 | Service | Port / URL | Description |
 |---|---|---|
-| **HTTP API** | `http://localhost:3000` | Hotel search, mock suppliers, admin, and health check |
-| **Interactive Docs** | `http://localhost:3000/docs` | Interactive Swagger UI (OpenAPI 3.0) |
+| **Recruiter Web UI** | `http://localhost:3000/` | Interactive dashboard with live search, Redis filters, and chaos controls |
+| **HTTP API** | `http://localhost:3000/api/hotels` | Top-level JSON array hotel search API |
+| **Interactive Docs** | `http://localhost:3000/docs/` | Interactive Swagger UI (OpenAPI 3.0) |
 | **Prometheus Metrics**| `http://localhost:3000/metrics` | Prometheus metrics scrape target |
 | **Temporal Web UI** | `http://localhost:8080` | Live workflow monitoring, replay debugging, activity timeline |
 | **Temporal gRPC** | `localhost:7233` | Temporal cluster gRPC endpoint |
@@ -230,7 +233,7 @@ npm install
 ```bash
 npm test
 ```
-*(Runs 30 unit & integration tests covering deduplication, tie-breakers, Redis Lua scripts, pagination, API routes, metrics, and fault injection).*
+*(Runs 31 unit & integration tests covering deduplication, tie-breakers, Redis Lua scripts, pagination, API routes, metrics, web UI, and fault injection).*
 
 ### 3. Type Check & Compile
 ```bash
