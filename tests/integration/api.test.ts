@@ -163,4 +163,12 @@ describe('API Integration Tests', () => {
     expect(res.body.openapi).toBe('3.0.3');
     expect(res.body.paths).toHaveProperty('/api/hotels');
   });
+
+  it('GET / serves the interactive recruiter UI dashboard', async () => {
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.text).toContain('Hotel Offer Orchestrator');
+    expect(res.text).toContain('Search Hotels');
+  });
 });

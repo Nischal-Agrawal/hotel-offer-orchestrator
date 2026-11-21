@@ -1,4 +1,5 @@
 import express, { Express } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -22,6 +23,9 @@ export function createApp(): Express {
   app.use(cors());
   app.use(express.json());
   app.use(requestIdMiddleware);
+
+  // Serve static UI assets from public directory
+  app.use(express.static(path.resolve(process.cwd(), 'public')));
 
   // Rate Limiter for public API endpoints
   const apiLimiter = rateLimit({

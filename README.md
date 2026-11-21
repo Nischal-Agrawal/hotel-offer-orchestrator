@@ -1,12 +1,12 @@
 # Hotel Offer Orchestrator
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7.svg)](https://hotel-offer-orchestrator-a7rz.onrender.com/docs/)
+[![Live Web UI](https://img.shields.io/badge/Live%20Dashboard-Web%20UI-46E3B7.svg)](https://hotel-offer-orchestrator-a7rz.onrender.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-22%20LTS-green.svg)](https://nodejs.org/)
 [![Temporal.io](https://img.shields.io/badge/Temporal.io-SDK-black.svg)](https://temporal.io/)
 [![Redis](https://img.shields.io/badge/Redis-7%20ZSET%20%2B%20Lua-red.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://www.docker.com/)
-[![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-31%2F31%20Passed-brightgreen.svg)]()
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0%20Swagger%20UI-green.svg)](https://hotel-offer-orchestrator-a7rz.onrender.com/docs/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-Metrics-orange.svg)](https://hotel-offer-orchestrator-a7rz.onrender.com/metrics)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
@@ -15,17 +15,18 @@ A production-grade, distributed hotel offer aggregation and pricing engine. Desi
 
 ---
 
-## 🌐 Live Cloud Deployment (One-Click Submission Link)
+## 🌐 Live Cloud Deployment (One-Click Submission Links)
 
 The entire project is deployed and live on Render as a cloud web service:
 
 | Resource | Live URL | Description |
 | :--- | :--- | :--- |
+| **🚀 Interactive Recruiter Web UI** | [https://hotel-offer-orchestrator-a7rz.onrender.com/](https://hotel-offer-orchestrator-a7rz.onrender.com/) | Beautiful dashboard with live search, Redis range filtering, and chaos testing |
 | **Interactive Swagger UI** | [https://hotel-offer-orchestrator-a7rz.onrender.com/docs/](https://hotel-offer-orchestrator-a7rz.onrender.com/docs/) | OpenAPI 3.0 interactive API documentation |
-| **Hotel Offers API** | [https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi](https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi) | Aggregated, deduplicated hotel search |
-| **Filtered Search** | [https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi&minPrice=6000&maxPrice=9000](https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi&minPrice=6000&maxPrice=9000) | Atomic Lua Redis range filtering |
+| **Hotel Offers API (Strict Contract)** | [https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi](https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi) | Aggregated, deduplicated hotel search array |
+| **Filtered Search (Atomic Lua)** | [https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi&minPrice=6000&maxPrice=9000](https://hotel-offer-orchestrator-a7rz.onrender.com/api/hotels?city=delhi&minPrice=6000&maxPrice=9000) | Atomic Lua Redis range filtering |
 | **Deep Health Check** | [https://hotel-offer-orchestrator-a7rz.onrender.com/health](https://hotel-offer-orchestrator-a7rz.onrender.com/health) | Health status of Redis, Temporal, and Suppliers |
-| **Prometheus Metrics** | [https://hotel-offer-orchestrator-a7rz.onrender.com/metrics](https://hotel-offer-orchestrator-a7rz.onrender.com/metrics) | Live Prometheus counters and histograms |
+| **Prometheus Metrics** | [https://hotel-offer-orchestrator-a7rz.onrender.com/metrics](https://hotel-offer-orchestrator-a7rz.onrender.com/metrics) | Live Prometheus counters and latency histograms |
 
 ---
 

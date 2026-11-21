@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hotel Offer Orchestrator | Distributed Pricing & Aggregation Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --accent-purple: #8b5cf6;
+      --accent-amber: #f59e0b;
+      --accent-rose: #ef4444;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation */
+    header {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 0.85rem 1.5rem;
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.15rem;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .logo-text h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-text p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      text-decoration: none;
+      color: var(--text-muted);
+      border: 1px solid var(--card-border);
+      background: rgba(31, 41, 55, 0.5);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .nav-btn:hover {
+      color: var(--text-main);
+      background: var(--card-border);
+      border-color: #374151;
+    }
+
+    .nav-btn.primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .nav-btn.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Container */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 3rem;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* Grid Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 960px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Search Bar & Filters */
+    .search-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .input-group {
+      flex: 1;
+      min-width: 140px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .input-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .input-control {
+      background: #0d131f;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 0.55rem 0.85rem;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+
+    .input-control:focus {
+      border-color: var(--primary);
+    }
+
+    .chips-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+    }
+
+    .chip {
+      background: rgba(31, 41, 55, 0.6);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.2rem 0.6rem;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chip:hover, .chip.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--primary);
+      color: #93c5fd;
+    }
+
+    .btn-search {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.65rem 1.4rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      align-self: flex-end;
+    }
+
+    .btn-search:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* Meta Bar */
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      background: #0d131f;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.8rem;
+    }
+
+    .meta-pills {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(31, 41, 55, 0.7);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+
+    .badge-hit {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-miss {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-degraded {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Tab switcher */
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      font-weight: 600;
+    }
+
+    /* Hotel Offers Cards */
+    .hotels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .hotel-card {
+      background: #0d131f;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hotel-card:hover {
+      transform: translateY(-2px);
+      border-color: #374151;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .hotel-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+    }
+
+    .hotel-name {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 0.4rem;
+    }
+
+    .hotel-price-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 0.75rem 0 0.5rem;
+    }
+
+    .hotel-price {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #60a5fa;
+      font-family: var(--font-sans);
+    }
+
+    .hotel-price small {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 400;
+      margin-left: 2px;
+    }
+
+    .hotel-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .supplier-badge {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .supplier-a {
+      background: rgba(6, 182, 212, 0.15);
+      color: #22d3ee;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .supplier-b {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .commission-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-size: 0.72rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .hotel-reason {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.65rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    /* JSON Viewer */
+    .json-box {
+      background: #090d16;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #d1d5db;
+      overflow-x: auto;
+      max-height: 480px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Sidebar Panels */
+    .sidebar-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .health-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .health-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0.85rem;
+      background: #0d131f;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 0.35rem;
+    }
+
+    .dot-green {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .dot-amber {
+      background: #f59e0b;
+      box-shadow: 0 0 8px #f59e0b;
+    }
+
+    .dot-red {
+      background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+    }
+
+    /* Chaos Buttons */
+    .chaos-btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .chaos-btn {
+      width: 100%;
+      padding: 0.55rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: 1px solid var(--card-border);
+      background: #0d131f;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s;
+    }
+
+    .chaos-btn:hover {
+      border-color: #374151;
+      color: var(--text-main);
+      background: #151d2e;
+    }
+
+    .chaos-btn.danger:hover {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .chaos-btn.restore {
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .chaos-btn.restore:hover {
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--card-border);
+      background: #0d131f;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: auto;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 3rem 1rem;
+      text-align: center;
+      color: var(--text-dim);
+      grid-column: 1 / -1;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #1f2937;
+      border: 1px solid #374151;
+      color: #fff;
+      padding: 0.75rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 100;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="nav-container">
+      <div class="logo-group">
+        <div class="logo-badge">⚡</div>
+        <div class="logo-text">
+          <h1>Hotel Offer Orchestrator</h1>
+          <p>Temporal.io • Redis 7 Lua Range Indexing • Deduplication Engine</p>
+        </div>
+      </div>
+      <div class="nav-links">
+        <a href="/docs/" target="_blank" class="nav-btn primary">📖 Swagger UI</a>
+        <a href="/metrics" target="_blank" class="nav-btn">📊 Metrics</a>
+        <a href="/health" target="_blank" class="nav-btn">🩺 Health API</a>
+        <a href="https://github.com/Nischal-Agrawal/hotel-offer-orchestrator" target="_blank" class="nav-btn">🐙 GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main>
+    <div class="dashboard-grid">
+
+      <!-- Left Column: Search & Results -->
+      <section>
+        
+        <!-- Search & Filter Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🔍 Search & Atomic Redis Range Filter</span>
+            <div class="checkbox-group" onclick="toggleRefreshCheckbox()">
+              <input type="checkbox" id="refreshCheckbox" />
+              <label for="refreshCheckbox">Force Refresh (Bypass Cache)</label>
+            </div>
+          </div>
+
+          <div class="search-panel">
+            <div class="input-row">
+              <div class="input-group" style="flex: 2;">
+                <label>Destination City</label>
+                <input type="text" id="cityInput" class="input-control" value="delhi" placeholder="e.g. delhi, mumbai" />
+                <div class="chips-group">
+                  <span class="chip active" onclick="setCity('delhi')">Delhi</span>
+                  <span class="chip" onclick="setCity('mumbai')">Mumbai</span>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label>Min Price (₹)</label>
+                <input type="number" id="minPriceInput" class="input-control" placeholder="0" />
+              </div>
+
+              <div class="input-group">
+                <label>Max Price (₹)</label>
+                <input type="number" id="maxPriceInput" class="input-control" placeholder="No limit" />
+              </div>
+
+              <button class="btn-search" id="searchBtn" onclick="executeSearch()">
+                <span>Search Hotels</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meta Telemetry Bar -->
+        <div class="meta-bar" id="metaBar">
+          <div class="meta-pills">
+            <span class="meta-pill" id="cacheStatusPill"><span class="status-dot dot-green"></span> Cache: READY</span>
+            <span class="meta-pill" id="latencyPill">⚡ Latency: 0ms</span>
+            <span class="meta-pill" id="countPill">🏨 Offers: 0</span>
+          </div>
+          <div class="meta-pills">
+            <span class="meta-pill" id="workflowIdPill" style="color: var(--text-dim); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Workflow: idle</span>
+          </div>
+        </div>
+
+        <!-- Results Display Tabs -->
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tabCardsBtn" onclick="switchTab('cards')">Visual Cards View</button>
+          <button class="tab-btn" id="tabJsonBtn" onclick="switchTab('json')">Raw Assessment JSON Array</button>
+        </div>
+
+        <!-- Tab 1: Visual Cards View -->
+        <div id="cardsView" class="hotels-grid">
+          <div class="empty-state">Loading hotel offers...</div>
+        </div>
+
+        <!-- Tab 2: Raw JSON View -->
+        <div id="jsonView" style="display: none;">
+          <div class="json-box" id="jsonOutput">[ ... ]</div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Sidebar (Health & Chaos Testing) -->
+      <aside class="sidebar-panel">
+
+        <!-- Live Dependency Health Card -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🩺 Live System Health</span>
+            <button class="chip" onclick="fetchHealth()">Refresh</button>
+          </div>
+          <div class="health-list">
+            <div class="health-item">
+              <span><span class="status-dot dot-green" id="redisDot"></span> Redis 7 ZSET Engine</span>
+              <span id="redisLatency" style="font-family: var(--font-mono); color: var(--text-dim);">0ms</span>
+            </div>
+            <div class="health-item">
+              <span><span class="status-dot dot-green" id="temporalDot"></span> Temporal Orchestration</span>
+              <span id="temporalLatency" style="font-family: var(--font-mono); color: var(--text-dim);">Active</span>
+            </div>
+            <div class="health-item">
+              <span><span class="status-dot dot-green" id="suppADot"></span> Supplier A (API)</span>
+              <span id="suppAStatus" style="color: #34d399; font-weight: 600;">Healthy</span>
+            </div>
+            <div class="health-item">
+              <span><span class="status-dot dot-green" id="suppBDot"></span> Supplier B (API)</span>
+              <span id="suppBStatus" style="color: #34d399; font-weight: 600;">Healthy</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chaos Engineering & Resilience Playground -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">⚡ Chaos & Failover Testing</span>
+          </div>
+          <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+            Test the engine's partial degradation resilience by simulating supplier outages in real time:
+          </p>
+          <div class="chaos-btn-group">
+            <button class="chaos-btn danger" onclick="toggleSupplier('supplierA', false)">
+              <span>Simulate Supplier A Outage</span>
+              <span style="font-size: 0.72rem; color: #fca5a5;">Fail A</span>
+            </button>
+            <button class="chaos-btn danger" onclick="toggleSupplier('supplierB', false)">
+              <span>Simulate Supplier B Outage</span>
+              <span style="font-size: 0.72rem; color: #fca5a5;">Fail B</span>
+            </button>
+            <button class="chaos-btn restore" onclick="restoreAllSuppliers()">
+              <span>✓ Restore Both Suppliers</span>
+              <span style="font-size: 0.72rem;">Recover</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Architecture Quick Info -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">💡 Architecture Highlights</span>
+          </div>
+          <ul style="font-size: 0.78rem; color: var(--text-muted); padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.45rem;">
+            <li><strong>Strict Top-Level Array:</strong> Exact response schema compliant with assessment prompt.</li>
+            <li><strong>Redis Native Filtering:</strong> Atomic Lua script executes ZRANGEBYSCORE + HMGET in one roundtrip.</li>
+            <li><strong>Singleflight Coalescing:</strong> Merges concurrent requests to eliminate cache stampedes.</li>
+            <li><strong>Deduplication Hierarchy:</strong> Lowest price wins &rarr; Highest commission tie-breaker &rarr; Alphabetical.</li>
+          </ul>
+        </div>
+
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">Notification</div>
+
+  <!-- Footer -->
+  <footer>
+    Hotel Offer Orchestrator • Production-Grade Engineering Assignment • Built with Node.js 22, TypeScript, Temporal.io, Redis 7 & Express
+  </footer>
+
+  <script>
+    // State
+    let currentOffers = [];
+
+    function setCity(cityName) {
+      document.getElementById('cityInput').value = cityName;
+      document.querySelectorAll('.chip').forEach(el => {
+        el.classList.toggle('active', el.textContent.toLowerCase() === cityName.toLowerCase());
+      });
+      executeSearch();
+    }
+
+    function toggleRefreshCheckbox() {
+      const cb = document.getElementById('refreshCheckbox');
+      cb.checked = !cb.checked;
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    function switchTab(tab) {
+      const cardsView = document.getElementById('cardsView');
+      const jsonView = document.getElementById('jsonView');
+      const tabCardsBtn = document.getElementById('tabCardsBtn');
+      const tabJsonBtn = document.getElementById('tabJsonBtn');
+
+      if (tab === 'cards') {
+        cardsView.style.display = 'grid';
+        jsonView.style.display = 'none';
+        tabCardsBtn.classList.add('active');
+        tabJsonBtn.classList.remove('active');
+      } else {
+        cardsView.style.display = 'none';
+        jsonView.style.display = 'block';
+        tabCardsBtn.classList.remove('active');
+        tabJsonBtn.classList.add('active');
+      }
+    }
+
+    async function executeSearch() {
+      const city = document.getElementById('cityInput').value.trim() || 'delhi';
+      const minPrice = document.getElementById('minPriceInput').value;
+      const maxPrice = document.getElementById('maxPriceInput').value;
+      const refresh = document.getElementById('refreshCheckbox').checked;
+      const searchBtn = document.getElementById('searchBtn');
+
+      searchBtn.disabled = true;
+      searchBtn.innerHTML = '<span>Searching...</span>';
+
+      const params = new URLSearchParams({ city });
+      if (minPrice) params.append('minPrice', minPrice);
+      if (maxPrice) params.append('maxPrice', maxPrice);
+      if (refresh) params.append('refresh', 'true');
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch(`/api/hotels?${params.toString()}`);
+        const latency = Math.round(performance.now() - startTime);
+
+        const cacheHeader = res.headers.get('x-cache-status') || 'UNKNOWN';
+        const workflowId = res.headers.get('x-workflow-id') || 'cached';
+        const degradedHeader = res.headers.get('x-degraded-suppliers');
+
+        const data = await res.json();
+        currentOffers = Array.isArray(data) ? data : [];
+
+        // Update Meta Bar
+        document.getElementById('latencyPill').textContent = `⚡ Latency: ${latency}ms`;
+        document.getElementById('countPill').textContent = `🏨 Offers: ${currentOffers.length}`;
+        document.getElementById('workflowIdPill').textContent = `Workflow: ${workflowId}`;
+
+        const cachePill = document.getElementById('cacheStatusPill');
+        if (degradedHeader) {
+          cachePill.className = 'meta-pill badge-degraded';
+          cachePill.textContent = `⚠️ Degraded: ${degradedHeader}`;
+        } else if (cacheHeader === 'HIT') {
+          cachePill.className = 'meta-pill badge-hit';
+          cachePill.textContent = `⚡ Cache: HIT (Redis)`;
+        } else {
+          cachePill.className = 'meta-pill badge-miss';
+          cachePill.textContent = `🔄 Cache: MISS (Fetched)`;
+        }
+
+        // Render Views
+        renderCards(currentOffers);
+        document.getElementById('jsonOutput').textContent = JSON.stringify(data, null, 2);
+
+      } catch (err) {
+        showToast('Error querying hotel offers: ' + err.message);
+        document.getElementById('cardsView').innerHTML = `<div class="empty-state" style="color: #f87171;">Failed to fetch offers: ${err.message}</div>`;
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = '<span>Search Hotels</span>';
+      }
+    }
+
+    function renderCards(offers) {
+      const container = document.getElementById('cardsView');
+      if (!offers || offers.length === 0) {
+        container.innerHTML = '<div class="empty-state">No hotel offers match the selected filters.</div>';
+        return;
+      }
+
+      container.innerHTML = offers.map(hotel => {
+        const isSupplierA = hotel.supplier.includes('A');
+        const supplierClass = isSupplierA ? 'supplier-a' : 'supplier-b';
+
+        return `
+          <div class="hotel-card">
+            <div>
+              <div class="hotel-name">${escapeHtml(hotel.name)}</div>
+              <div class="hotel-badges">
+                <span class="supplier-badge ${supplierClass}">${escapeHtml(hotel.supplier)}</span>
+                <span class="commission-badge">${hotel.commissionPct}% Margin</span>
+              </div>
+            </div>
+            <div>
+              <div class="hotel-price-row">
+                <div class="hotel-price">₹${hotel.price.toLocaleString('en-IN')}<small>/night</small></div>
+              </div>
+              <div class="hotel-reason">
+                <span>✓ Lowest Price deduplicated & verified</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+
+        // Redis
+        const redisUp = data.dependencies?.redis?.status === 'up';
+        document.getElementById('redisDot').className = `status-dot ${redisUp ? 'dot-green' : 'dot-red'}`;
+        document.getElementById('redisLatency').textContent = `${data.dependencies?.redis?.latencyMs ?? 0}ms`;
+
+        // Temporal
+        const tempUp = data.dependencies?.temporal?.status === 'up';
+        document.getElementById('temporalDot').className = `status-dot ${tempUp ? 'dot-green' : 'dot-red'}`;
+
+        // Supplier A
+        const suppAUp = data.dependencies?.supplierA?.status === 'up';
+        document.getElementById('suppADot').className = `status-dot ${suppAUp ? 'dot-green' : 'dot-red'}`;
+        document.getElementById('suppAStatus').textContent = suppAUp ? 'Healthy' : 'Outage';
+        document.getElementById('suppAStatus').style.color = suppAUp ? '#34d399' : '#f87171';
+
+        // Supplier B
+        const suppBUp = data.dependencies?.supplierB?.status === 'up';
+        document.getElementById('suppBDot').className = `status-dot ${suppBUp ? 'dot-green' : 'dot-red'}`;
+        document.getElementById('suppBStatus').textContent = suppBUp ? 'Healthy' : 'Outage';
+        document.getElementById('suppBStatus').style.color = suppBUp ? '#34d399' : '#f87171';
+
+      } catch (err) {
+        console.error('Failed to probe health', err);
+      }
+    }
+
+    async function toggleSupplier(supplier, healthy) {
+      try {
+        const res = await fetch(`/admin/suppliers/${supplier}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ healthy })
+        });
+        const data = await res.json();
+        showToast(`${data.supplier}: Healthy set to ${data.healthy}`);
+        fetchHealth();
+      } catch (err) {
+        showToast('Failed to update supplier: ' + err.message);
+      }
+    }
+
+    async function restoreAllSuppliers() {
+      await Promise.all([
+        toggleSupplier('supplierA', true),
+        toggleSupplier('supplierB', true)
+      ]);
+      showToast('All suppliers restored to Healthy status.');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
+
+    // Auto-init on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchHealth();
+      executeSearch();
+      setInterval(fetchHealth, 10000);
+    });
+  </script>
+</body>
+</html>
