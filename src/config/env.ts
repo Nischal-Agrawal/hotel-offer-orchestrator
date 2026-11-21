@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const defaultPort = process.env.PORT || '3000';
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -12,7 +14,7 @@ const envSchema = z.object({
   TEMPORAL_ADDRESS: z.string().default('localhost:7233'),
   TEMPORAL_NAMESPACE: z.string().default('default'),
   TEMPORAL_TASK_QUEUE: z.string().default('hotel-orchestrator-queue'),
-  SUPPLIER_BASE_URL: z.string().default('http://localhost:3000'),
+  SUPPLIER_BASE_URL: z.string().default(`http://localhost:${defaultPort}`),
 });
 
 export type Env = z.infer<typeof envSchema>;
